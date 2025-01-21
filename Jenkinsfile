@@ -16,19 +16,15 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
+                    sh "docker build -t ${env.DOCKER_IMAGE}:${env.DOCKER_TAG} ." 
                 }
             }
         }
 
         stage('Run Tests') {
             steps {
-                script {
-                    docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").inside {
-                        sh 'python --version'
-                        sh 'flask --version'
-                    }
-                }
+                sh "docker run ${DOCKER_IMAGE}:${DOCKER_TAG} python --version"
+                sh "docker run ${DOCKER_IMAGE}:${DOCKER_TAG} flask --version"
             }
         }
 
