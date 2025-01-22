@@ -19,7 +19,6 @@ pipeline {
             steps {
                 sh 'python --version'
                 sh 'flask --version'
-                sh 'curl --version'
             }
         }
 
