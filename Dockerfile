@@ -1,4 +1,4 @@
-FROM python
+FROM jitesoft/python
 
 WORKDIR /app
 
