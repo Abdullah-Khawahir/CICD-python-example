@@ -2,7 +2,6 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_REGISTRY = 'your-docker-registry' // Replace with your Docker registry
         DOCKER_IMAGE_NAME = 'flask-app' // Replace with your Docker image name
         DOCKER_IMAGE_TAG = "${env.BUILD_NUMBER}" // Use the Jenkins build number as the tag
         DOCKER_COMPOSE_FILE = 'docker-compose.yml'
@@ -14,19 +13,11 @@ pipeline {
             steps {
                 script {
                     echo "Building Docker image..."
-                    sh "docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ."
+                    sh "docker build -t ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ."
                 }
             }
         }
 
-        //stage('Push Docker Image') {
-        //    steps {
-        //        script {
-        //            echo "Pushing Docker image to registry..."
-        //            sh "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
-        //        }
-        //    }
-        //}
 
         stage('Deploy to Inactive Environment') {
             steps {
@@ -38,7 +29,7 @@ pipeline {
 
                     // Update the Docker Compose file for the inactive environment
                     sh """
-                        sed -i 's/image: ${DOCKER_REGISTRY}\\/${DOCKER_IMAGE_NAME}:.*/image: ${DOCKER_REGISTRY}\\/${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}/g' ${inactiveEnv}-${DOCKER_COMPOSE_FILE}
+                        sed -i 's/image: ${DOCKER_IMAGE_NAME}:.*/image: ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}/g' ${inactiveEnv}-${DOCKER_COMPOSE_FILE}
                     """
 
                     // Start the inactive environment
