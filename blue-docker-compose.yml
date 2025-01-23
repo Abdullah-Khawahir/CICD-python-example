@@ -1,8 +1,8 @@
 version: '3'
 services:
   flask-app:
-    image: your-docker-registry/flask-app:latest
+    build: .
     ports:
-      - "8080:80" # Expose port 8080 on the host, mapped to port 80 in the container
+      - "5001:80"
     environment:
       - FLASK_ENV=production
