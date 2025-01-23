@@ -1,40 +1,94 @@
 pipeline {
-    agent none
+    agent any
+
     environment {
-        DOCKER_IMAGE_NAME = "cicd-python-example"
-        DOCKER_IMAGE_LABEL = "latest"
-        GIVEN_PORT = "5000"
-        CONTAINER_NAME = "cicd-python-container"
+        DOCKER_REGISTRY = 'your-docker-registry' // Replace with your Docker registry
+        DOCKER_IMAGE_NAME = 'flask-app' // Replace with your Docker image name
+        DOCKER_IMAGE_TAG = "${env.BUILD_NUMBER}" // Use the Jenkins build number as the tag
+        DOCKER_COMPOSE_FILE = 'docker-compose.yml'
+        BLUE_GREEN = 'blue' // Tracks which environment is live (blue or green)
     }
+
     stages {
-        stage("Build") {
-            agent any
-            steps {
-                sh "docker build -t ${env.DOCKER_IMAGE_NAME}:${env.DOCKER_IMAGE_LABEL} ."
-            }
-        }
-
-        stage("Test") {
-            agent { dockerfile true }
-            steps {
-                sh 'python --version'
-                sh 'flask --version'
-            }
-        }
-
-        stage("Deploy") {
-            agent any
+        stage('Build Docker Image') {
             steps {
                 script {
-                    def runningContainerId = sh(script: "docker ps -q -f name=${env.CONTAINER_NAME}", returnStdout: true).trim()
-                    if (runningContainerId) {
-                        echo "Stopping running container with ID: ${runningContainerId}"
-                        sh "docker stop ${runningContainerId}"
-                        sh "docker rm ${runningContainerId}"
-                    }
-
-                    sh "docker run -d --name ${env.CONTAINER_NAME} -p ${env.GIVEN_PORT}:80 ${env.DOCKER_IMAGE_NAME}:${env.DOCKER_IMAGE_LABEL}"
+                    echo "Building Docker image..."
+                    sh "docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ."
                 }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    echo "Pushing Docker image to registry..."
+                    sh "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
+                }
+            }
+        }
+
+        stage('Deploy to Inactive Environment') {
+            steps {
+                script {
+                    // Determine the inactive environment
+                    def inactiveEnv = (BLUE_GREEN == 'blue') ? 'green' : 'blue'
+
+                    echo "Deploying to ${inactiveEnv} environment..."
+
+                    // Update the Docker Compose file for the inactive environment
+                    sh """
+                        sed -i 's/image: ${DOCKER_REGISTRY}\\/${DOCKER_IMAGE_NAME}:.*/image: ${DOCKER_REGISTRY}\\/${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}/g' ${inactiveEnv}-${DOCKER_COMPOSE_FILE}
+                    """
+
+                    // Start the inactive environment
+                    sh "docker-compose -f ${inactiveEnv}-${DOCKER_COMPOSE_FILE} up -d"
+
+                    // Wait for the application to start
+                    echo "Waiting for the ${inactiveEnv} environment to start..."
+                    sleep(time: 10, unit: 'SECONDS') // Adjust the sleep time as needed
+
+                    // Run a health check or smoke test
+                    echo "Running health check on ${inactiveEnv} environment..."
+                    sh """
+                        curl -f http://localhost:${inactiveEnv == 'blue' ? '8080' : '8081'} || exit 1
+                    """
+                }
+            }
+        }
+
+        stage('Switch Traffic') {
+            steps {
+                script {
+                    echo "Switching traffic to the new environment..."
+
+                    // Bring down the old environment
+                    sh "docker-compose -f ${BLUE_GREEN}-${DOCKER_COMPOSE_FILE} down"
+
+                    // Update the BLUE_GREEN environment variable
+                    env.BLUE_GREEN = (BLUE_GREEN == 'blue') ? 'green' : 'blue'
+
+                    echo "Traffic is now routed to the ${env.BLUE_GREEN} environment."
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Deployment successful! Traffic is now routed to the ${env.BLUE_GREEN} environment."
+        }
+        failure {
+            echo "Deployment failed. Rolling back to the previous environment."
+            script {
+                // Bring down the failed environment
+                sh "docker-compose -f ${env.BLUE_GREEN}-${DOCKER_COMPOSE_FILE} down"
+
+                // Switch back to the previous environment
+                env.BLUE_GREEN = (env.BLUE_GREEN == 'blue') ? 'green' : 'blue'
+
+                // Start the previous environment
+                sh "docker-compose -f ${env.BLUE_GREEN}-${DOCKER_COMPOSE_FILE} up -d"
             }
         }
     }
