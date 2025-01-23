@@ -19,14 +19,14 @@ pipeline {
             }
         }
 
-        stage('Push Docker Image') {
-            steps {
-                script {
-                    echo "Pushing Docker image to registry..."
-                    sh "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
-                }
-            }
-        }
+        //stage('Push Docker Image') {
+        //    steps {
+        //        script {
+        //            echo "Pushing Docker image to registry..."
+        //            sh "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
+        //        }
+        //    }
+        //}
 
         stage('Deploy to Inactive Environment') {
             steps {
