@@ -3,6 +3,6 @@ services:
   flask-app:
     build: .
     ports:
-      - "5001:80"
+      - "5000:80"
     environment:
       - FLASK_ENV=production
