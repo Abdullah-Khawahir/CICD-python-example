@@ -51,7 +51,7 @@ pipeline {
                     // Run a health check or smoke test
                     echo "Running health check on ${inactiveEnv} environment..."
                     sh """
-                        curl -f http://localhost:${inactiveEnv == 'blue' ? '8080' : '8081'} || exit 1
+                        curl -f http://localhost:${inactiveEnv == 'blue' ? '5000' : '5001'} || exit 1
                     """
                 }
             }
